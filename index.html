@@ -48,55 +48,73 @@
         const video = document.getElementById('video');
         let stream = null;
         let currentTrack = null;
-        let frontTrack = null;
         let backTrack = null;
         let isFrontCamera = true;
 
         async function initCamera() {
             try {
-                // Request BOTH cameras in one go - Android WebView handles this better
-                const frontStream = await navigator.mediaDevices.getUserMedia({
+                // Start with front camera ONLY (known to work)
+                stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
                 });
-                const backStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-                });
-
-                // Extract video tracks
-                frontTrack = frontStream.getVideoTracks()[0];
-                backTrack = backStream.getVideoTracks()[0];
-
-                // Clean up extra streams but keep tracks alive
-                frontStream.getTracks().forEach(track => track !== frontTrack && track.stop());
-                backStream.getTracks().forEach(track => track !== backTrack && track.stop());
-
-                // Start with front camera
-                stream = new MediaStream([frontTrack]);
+                currentTrack = stream.getVideoTracks()[0];
                 video.srcObject = stream;
-                currentTrack = frontTrack;
-
+                
+                // Find back camera for later switching (no permission needed to enumerate)
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                backTrack = devices.find(device => 
+                    device.kind === 'videoinput' && 
+                    device.label.toLowerCase().includes('back') || 
+                    !device.label.toLowerCase().includes('front')
+                );
+                
             } catch (err) {
-                alert('Camera access denied: ' + err.message);
+                alert('Front camera access denied: ' + err.message);
+            }
+        }
+
+        async function switchToBackCamera() {
+            try {
+                if (!backTrack || !backTrack.deviceId) {
+                    alert('Back camera not found');
+                    return;
+                }
+                
+                // Stop current track, get new back camera track
+                currentTrack.stop();
+                
+                // Get back camera with SAME permissions context
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        deviceId: { exact: backTrack.deviceId },
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 } 
+                    }
+                });
+                
+                currentTrack = newStream.getVideoTracks()[0];
+                stream.removeTrack(stream.getVideoTracks()[0]);
+                stream.addTrack(currentTrack);
+                video.srcObject = stream;
+                
+                video.style.transform = 'none'; // No mirror for back
+                isFrontCamera = false;
+                
+            } catch (err) {
+                alert('Back camera failed: ' + err.message);
             }
         }
 
         function toggleCamera() {
-            if (!frontTrack || !backTrack) return;
-
-            // Switch tracks without new permission
-            currentTrack.stop();
-            currentTrack = isFrontCamera ? backTrack : frontTrack;
-            stream.removeTrack(stream.getVideoTracks()[0]);
-            stream.addTrack(currentTrack);
-            video.srcObject = stream;
-
-            // Mirror effect only for front camera
-            video.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
-
-            isFrontCamera = !isFrontCamera;
+            if (isFrontCamera) {
+                switchToBackCamera();
+            } else {
+                // Switch back to front (re-request works after initial grant)
+                initCamera();
+            }
         }
 
-        // Telegram Mini App support
+        // Telegram support
         if (window.Telegram?.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
@@ -104,6 +122,7 @@
 
         initCamera();
     </script>
+
 
 </body>
 </html>
