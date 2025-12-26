@@ -47,29 +47,53 @@
     <script>
         const video = document.getElementById('video');
         let stream = null;
+        let currentTrack = null;
+        let frontTrack = null;
+        let backTrack = null;
         let isFrontCamera = true;
 
-        async function startCamera() {
+        async function initCamera() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: isFrontCamera ? 'user' : 'environment',
-                        width: { ideal: 1280 }, 
-                        height: { ideal: 720 } 
-                    }
+                // Request BOTH cameras in one go - Android WebView handles this better
+                const frontStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
                 });
+                const backStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+
+                // Extract video tracks
+                frontTrack = frontStream.getVideoTracks()[0];
+                backTrack = backStream.getVideoTracks()[0];
+
+                // Clean up extra streams but keep tracks alive
+                frontStream.getTracks().forEach(track => track !== frontTrack && track.stop());
+                backStream.getTracks().forEach(track => track !== backTrack && track.stop());
+
+                // Start with front camera
+                stream = new MediaStream([frontTrack]);
                 video.srcObject = stream;
+                currentTrack = frontTrack;
+
             } catch (err) {
                 alert('Camera access denied: ' + err.message);
             }
         }
 
         function toggleCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
+            if (!frontTrack || !backTrack) return;
+
+            // Switch tracks without new permission
+            currentTrack.stop();
+            currentTrack = isFrontCamera ? backTrack : frontTrack;
+            stream.removeTrack(stream.getVideoTracks()[0]);
+            stream.addTrack(currentTrack);
+            video.srcObject = stream;
+
+            // Mirror effect only for front camera
+            video.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
+
             isFrontCamera = !isFrontCamera;
-            startCamera();
         }
 
         // Telegram Mini App support
@@ -78,7 +102,8 @@
             Telegram.WebApp.expand();
         }
 
-        startCamera();
+        initCamera();
     </script>
+
 </body>
 </html>
