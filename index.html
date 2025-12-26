@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mirror App</title>
+    <style>
+        body { 
+            margin: 0; padding: 0; 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            font-family: sans-serif; 
+        }
+        #video { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: cover; 
+            transform: scaleX(-1); /* Mirror flip */
+        }
+        #controls { 
+            position: absolute; 
+            bottom: 20px; 
+            text-align: center; 
+            color: white; 
+        }
+        button { 
+            background: #0088cc; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            cursor: pointer; 
+        }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay muted playsinline></video>
+    <div id="controls">
+        <button onclick="toggleCamera()">Switch Camera</button>
+        <p>Front camera mirror</p>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        let stream = null;
+        let isFrontCamera = true;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: isFrontCamera ? 'user' : 'environment',
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 } 
+                    }
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert('Camera access denied: ' + err.message);
+            }
+        }
+
+        function toggleCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            isFrontCamera = !isFrontCamera;
+            startCamera();
+        }
+
+        // Telegram Mini App support
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+
+        startCamera();
+    </script>
+</body>
+</html>
