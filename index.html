@@ -71,8 +71,7 @@
                 alert(listDevices2);
                 backTrack = devices.find(device => 
                     device.kind === 'videoinput' && 
-                    device.label.toLowerCase().includes('back') || 
-                    !device.label.toLowerCase().includes('front')
+                    device.label.toLowerCase().includes('back')
                 );
                 alert(backTrack.label);
                 
