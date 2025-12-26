@@ -62,9 +62,13 @@
                 
                 // Find back camera for later switching (no permission needed to enumerate)
                 const devices = await navigator.mediaDevices.enumerateDevices();
-                // let listDevices = devices.filter(device => 
-                //     device.kind === 'videoinput').map(device=>device.label).join(', ');
-                // alert(listDevices);
+                let listDevices = devices.filter(device => 
+                    device.kind === 'videoinput').map(device=>device.label).join(';; ');
+                alert(listDevices);
+                let listDevices2 = devices.filter(device => 
+                    device.kind === 'videoinput'&& 
+                    device.label.toLowerCase().includes('back')).map(device=>device.label).join(';; ');
+                alert(listDevices2);
                 backTrack = devices.find(device => 
                     device.kind === 'videoinput' && 
                     device.label.toLowerCase().includes('back') || 
